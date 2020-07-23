@@ -1,0 +1,152 @@
+服务器管理某种资源，通过操作这种资源为它的客户端提供某种服务。
+基本操作：事务
+当一个客户端需要服务时，向服务器发送一个请求，发起一个事务。
+服务器收到请求后，解释它，并以适当方式操作它的资源
+服务器给客户端发送一个响应，并等待下一个请求
+客户端收到响应并处理它
+
+客户端和服务器时进程
+
+IP地址：
+struct in_addr{
+    uint32_t s_addr;
+}
+
+网络字节顺序：大端字节顺序
+#include<arpa/inet.h>
+
+uint32_t htonl(uint32_t hostlong);
+uint16_t htons(uint16_t hostshort);
+//按照网络字节顺序的值返回
+
+uint32_t ntohl(uint32_t netlong);
+uint16_t ntohs(uint16_t netshort);
+//按照主机字节顺序的值返回
+
+IP地址和点分十进制的转换：
+
+#include<arpa/inet.h>
+int inet_pton(AF_INET, const char *src, void *dst);
+//返回：成功为1，若src为非法点分十进制地址为0，出错为-1；
+const char *inet_ntop(AF_INET,const void *src, char *dst, socklen_t size);
+//返回：成功则指向点分十进制字符串的指针，出错为NULL；
+
+n“网络” p“表示”
+IPv4地址：AF_INET            IPv6地址：AF_INET6
+
+因特网域名：
+由ICANN定义
+常见第一层域名：com、edu、gov、org、net
+
+本地定义的域名，映射为回送地址：127.0.0.1
+
+套接字接口：
+
+                客户端                                          服务器
+            getaddrinfo                                     getaddrinfo
+               socket                                          socket
+                                                                bind
+                                                               listen
+               connect          --------->连接请求              accept    <---     
+             rio_writen         --------->                  rio_readlineb    |  
+             rio_readlineb      <---------                   rio_writen      |
+             close              --------->EOF                rio_readlineb   |
+                                                                close --------      
+套接字地址结构
+
+struct sockaddr_in{
+    uint16_t sin_family;    //AF_INET
+    uint16_t sin_port;  //port number
+    struct in_addr sin_addr;    //  IP address
+    unsigned char sin_zero[8];  //Pad sizeof(struct sockaddr)
+};
+
+struct sockaddr{
+    uint16_t sa_family;  //protocol family
+    char     sa_data[14];   //address data
+};
+
+socket函数：创建一个套接字描述符
+#include<sys/types.h>
+#include<sys/socket.h>
+int socket(int domain, int type, int protocol)
+//返回：成功为非负描述符，出错为-1
+
+connect函数：客户端调用来建立和服务器的连接
+#include<sys/socket.h>
+int connect(int clientfd, const struct sockaddr *addr, socklen_t addrlen);
+//返回：成功为0，出错为-1
+addrlen 是sizeof（sockaddr_in)
+
+服务器用来和客户端建立连接的函数:
+bind函数：
+#include<sys/socket.h>
+int bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen);
+//返回：成功为0，出错为-1
+
+listen函数：
+#include<sys/socket.h>
+int listen(int sockfd, int backlog);
+//返回：成功为0，出错为-1
+
+accept函数：
+#include<sys/socket.h>
+int bind(int listenfd, const struct sockaddr *addr, int addrlen);
+//返回：成功为非负连接描述符，出错为-1
+
+主机和服务的转换：
+getaddrinfo函数：将字符串转换成套接字地址结构
+
+#include<sys/types.h>
+#include<sys/socket.h>
+#include<netdb.h>
+int getaddrinfo(const char *host,const char* service,
+                const struct addrinfo *hints,
+                struct addrinfo **result);
+                //返回：成功为0，错误为非0错误代码；
+void freeaddrinfo(struct addrinfo *result);
+
+const char *gai_strerror(int errcode);//返回：错误消息；
+
+给定host和service，getaddrinfo返回result，result指向addrinfo结构的链表，每一个结构指向一个对应host和service的套接字地址结构
+
+可选参数hints是一个addrinfo结构：
+传递hints参数：设置：ai_family ai_socktype ai_protocol ai_flags,其余字段设置为0
+
+struct addrinfo{
+    int  ai_flags; 
+    int ai_family;
+    int ai_socktype;
+    int ai_protocol;
+    char *ai_canonname;
+    size_t ai_addrlen;
+    struct sockaddr *ai_addr;
+    struct addrinfo *ai_next;
+}；
+
+gernameinfo函数：将套接字地址结构转换成相应的主机和服务名字符串
+#include<sys/socket.h>
+#include<netdb.h>
+int getnameinfo(const struct sockaddr *sa, socklen_t salen,
+                char *host, size_t hostlen,
+                char *service,size_t servlen, int flags);
+                //返回：成功为0，错误为非0错误代码；
+sa指向大小为salen字节的套接字地址结构
+host指向大小为hostlen字节的缓冲区
+service指向大小为servlen字节的缓冲区。
+将sa转换为对应主机和服务名字符串，复制到host和service缓冲区
+flags是一个位掩码，可以修改默认的行为。
+
+辅助函数：
+open_clientfd函数：客户端调用建立与服务器的连接。
+
+#include"csapp.h"
+int open_clientfd(char *hostname,char *port);
+//返回：成功为描述符，出错为-1
+
+open_listenfd函数：服务器调用，创建一个监听描述符，准备好接收连接请求。
+#include"csapp.h"
+int open_listenfd(char *por t);
+
+
+TINY Web服务器：
